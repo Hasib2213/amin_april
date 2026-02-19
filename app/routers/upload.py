@@ -1,0 +1,73 @@
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from app.dependencies import get_db
+from app.services.dna_parser import parse_dna
+from app.services.gedcom_parser import parse_gedcom
+from app.services.ocr_extractor import extract_from_file
+from app.utils.file_handler import save_temp_file
+from app.models.upload import DNAUpload, GEDCOMUpload, DocumentUpload, DNASNP
+from bson import ObjectId
+import aiofiles.os
+from datetime import datetime
+
+router = APIRouter(prefix="/api/v1", tags=["upload"])
+
+@router.post("/dna")
+async def upload_dna(file: UploadFile = File(...), db = Depends(get_db)):
+    if not file.filename.lower().endswith(('.txt', '.zip')):
+        raise HTTPException(400, "DNA: .txt or .zip only")
+
+    temp_path = await save_temp_file(file)
+    try:
+        with open(temp_path, "rb") as f:
+            content = f.read()
+        snps = parse_dna(content, file.filename)
+
+        upload_doc = DNAUpload(
+            filename=file.filename,
+            snps=[DNASNP(**s) for s in snps]
+        ).dict(exclude_none=True)
+
+        result = await db.uploads.insert_one(upload_doc)
+        return {"status": "ok", "id": str(result.inserted_id), "snps": len(snps)}
+    finally:
+        await aiofiles.os.remove(temp_path)
+
+@router.post("/gedcom")
+async def upload_gedcom(file: UploadFile = File(...), db = Depends(get_db)):
+    if not file.filename.lower().endswith('.ged'):
+        raise HTTPException(400, ".ged only")
+
+    temp_path = await save_temp_file(file)
+    try:
+        parsed = parse_gedcom(temp_path)
+
+        upload_doc = GEDCOMUpload(
+            filename=file.filename,
+            individuals=parsed["individuals"],
+            families=parsed["families"]
+        ).dict()
+
+        result = await db.uploads.insert_one(upload_doc)
+        return {"status": "ok", "id": str(result.inserted_id)}
+    finally:
+        await aiofiles.os.remove(temp_path)
+
+@router.post("/document")
+async def upload_document(file: UploadFile = File(...), db = Depends(get_db)):
+    content = await file.read()
+    mime = file.content_type or "image/jpeg"
+
+    try:
+        extracted = await extract_from_file(content, mime)
+
+        doc = DocumentUpload(
+            filename=file.filename,
+            extracted_text=extracted.full_text,
+            summary=extracted.summary,
+            key_entities=extracted.key_entities
+        ).dict()
+
+        result = await db.uploads.insert_one(doc)
+        return {"status": "ok", "id": str(result.inserted_id), "extracted": extracted.dict()}
+    except Exception as e:
+        raise HTTPException(500, f"OCR failed: {str(e)}")

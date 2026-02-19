@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+motor
+python-multipart
+google-generativeai
+python-dotenv
+python-gedcom
+pytest
+httpx
+aiofiles

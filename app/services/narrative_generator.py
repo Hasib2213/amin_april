@@ -30,7 +30,29 @@ async def generate_family_narrative(
     - No repeating historical events (e.g. famine only once)
     - Structure: 1. Ethnicity overview 2. Timeline (unique events) 3. 3-5 ancestor bios 4. Migration story 5. Conclusion
     - Engaging but factual tone
-    Output JSON: {{"overview": str, "timeline": list[dict], "ancestors": list[dict], "story": str}}
+    
+    Output JSON with this exact structure:
+    {{
+        "overview": "string - ethnicity summary",
+        "ethnicity_breakdown": [
+            {{"region": "string (e.g. Italian, Irish, Scottish)", "percentage": number}}
+        ],
+        "timeline": [
+            {{"year": number, "event": "string", "type": "Historical|Ancestor|Migration"}}
+        ],
+        "ancestors": [
+            {{
+                "name": "string",
+                "birth_year": number,
+                "region": "string (ethnicity/origin)",
+                "relationship_percentage": number,
+                "story": "string"
+            }}
+        ],
+        "story": "string - main narrative"
+    }}
+    
+    IMPORTANT: Include ethnicity_breakdown with percentage for each region and relationship_percentage for each ancestor showing DNA match percentage.
     """
 
     try:

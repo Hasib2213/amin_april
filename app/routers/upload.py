@@ -4,7 +4,7 @@ from app.services.dna_parser import parse_dna
 from app.services.gedcom_parser import parse_gedcom
 from app.services.ocr_extractor import extract_from_file
 from app.utils.file_handler import save_temp_file
-from app.models.upload import DNAUpload, GEDCOMUpload, DocumentUpload, DNASNP
+from app.models.upload import DNAUpload, GEDCOMUpload, DocumentUpload, PhotoUpload, DNASNP
 from bson import ObjectId
 import aiofiles.os
 from datetime import datetime
@@ -55,7 +55,7 @@ async def upload_gedcom(file: UploadFile = File(...), db = Depends(get_db)):
 @router.post("/document")
 async def upload_document(file: UploadFile = File(...), db = Depends(get_db)):
     content = await file.read()
-    mime = file.content_type or "image/jpeg"
+    mime = file.content_type or "application/pdf"
 
     try:
         extracted = await extract_from_file(content, mime)
@@ -71,3 +71,28 @@ async def upload_document(file: UploadFile = File(...), db = Depends(get_db)):
         return {"status": "ok", "id": str(result.inserted_id), "extracted": extracted.dict()}
     except Exception as e:
         raise HTTPException(500, f"OCR failed: {str(e)}")
+
+@router.post("/photo")
+async def upload_photo(file: UploadFile = File(...), db = Depends(get_db)):
+    # Validate image file types
+    allowed_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp')
+    if not file.filename.lower().endswith(allowed_extensions):
+        raise HTTPException(400, "Only image files allowed: JPG, PNG, GIF, BMP, WEBP")
+    
+    content = await file.read()
+    mime = file.content_type or "image/jpeg"
+
+    try:
+        extracted = await extract_from_file(content, mime)
+
+        photo = PhotoUpload(
+            filename=file.filename,
+            extracted_text=extracted.full_text,
+            summary=extracted.summary,
+            key_entities=extracted.key_entities
+        ).dict()
+
+        result = await db.uploads.insert_one(photo)
+        return {"status": "ok", "id": str(result.inserted_id), "extracted": extracted.dict()}
+    except Exception as e:
+        raise HTTPException(500, f"Photo OCR failed: {str(e)}")

@@ -36,7 +36,13 @@ class GEDCOMUpload(UploadBase):
     families: List[Dict] = []
 
 class DocumentUpload(UploadBase):
-    type: str = "document"  # or "photo"
+    type: str = "document"
+    extracted_text: str = ""
+    summary: str = ""
+    key_entities: List[Dict] = []   # name/date/place etc.
+
+class PhotoUpload(UploadBase):
+    type: str = "photo"
     extracted_text: str = ""
     summary: str = ""
     key_entities: List[Dict] = []   # name/date/place etc.

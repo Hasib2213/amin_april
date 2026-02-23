@@ -21,7 +21,7 @@ class DNASNP(BaseModel):
     genotype: str
 
 class UploadBase(BaseModel):
-    user_id: str = "demo_user"
+    user_id: str
     filename: str
     type: str  # "dna", "gedcom", "document", "photo"
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)

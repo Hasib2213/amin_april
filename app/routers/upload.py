@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
-from app.dependencies import get_db
+from app.dependencies import get_db, get_current_user_id
 from app.services.dna_parser import parse_dna
 from app.services.gedcom_parser import parse_gedcom
 from app.services.ocr_extractor import extract_from_file
@@ -12,7 +12,11 @@ from datetime import datetime
 router = APIRouter(prefix="/api/v1", tags=["upload"])
 
 @router.post("/dna")
-async def upload_dna(file: UploadFile = File(...), db = Depends(get_db)):
+async def upload_dna(
+    file: UploadFile = File(...), 
+    db = Depends(get_db),
+    user_id: str = Depends(get_current_user_id)
+):
     if not file.filename.lower().endswith(('.txt', '.zip')):
         raise HTTPException(400, "DNA: .txt or .zip only")
 
@@ -23,6 +27,7 @@ async def upload_dna(file: UploadFile = File(...), db = Depends(get_db)):
         snps = parse_dna(content, file.filename)
 
         upload_doc = DNAUpload(
+            user_id=user_id,
             filename=file.filename,
             snps=[DNASNP(**s) for s in snps]
         ).dict(exclude_none=True)
@@ -33,7 +38,11 @@ async def upload_dna(file: UploadFile = File(...), db = Depends(get_db)):
         await aiofiles.os.remove(temp_path)
 
 @router.post("/gedcom")
-async def upload_gedcom(file: UploadFile = File(...), db = Depends(get_db)):
+async def upload_gedcom(
+    file: UploadFile = File(...), 
+    db = Depends(get_db),
+    user_id: str = Depends(get_current_user_id)
+):
     if not file.filename.lower().endswith('.ged'):
         raise HTTPException(400, ".ged only")
 
@@ -42,6 +51,7 @@ async def upload_gedcom(file: UploadFile = File(...), db = Depends(get_db)):
         parsed = parse_gedcom(temp_path)
 
         upload_doc = GEDCOMUpload(
+            user_id=user_id,
             filename=file.filename,
             individuals=parsed["individuals"],
             families=parsed["families"]
@@ -53,7 +63,11 @@ async def upload_gedcom(file: UploadFile = File(...), db = Depends(get_db)):
         await aiofiles.os.remove(temp_path)
 
 @router.post("/document")
-async def upload_document(file: UploadFile = File(...), db = Depends(get_db)):
+async def upload_document(
+    file: UploadFile = File(...), 
+    db = Depends(get_db),
+    user_id: str = Depends(get_current_user_id)
+):
     content = await file.read()
     mime = file.content_type or "application/pdf"
 
@@ -61,6 +75,7 @@ async def upload_document(file: UploadFile = File(...), db = Depends(get_db)):
         extracted = await extract_from_file(content, mime)
 
         doc = DocumentUpload(
+            user_id=user_id,
             filename=file.filename,
             extracted_text=extracted.full_text,
             summary=extracted.summary,
@@ -73,7 +88,11 @@ async def upload_document(file: UploadFile = File(...), db = Depends(get_db)):
         raise HTTPException(500, f"OCR failed: {str(e)}")
 
 @router.post("/photo")
-async def upload_photo(file: UploadFile = File(...), db = Depends(get_db)):
+async def upload_photo(
+    file: UploadFile = File(...), 
+    db = Depends(get_db),
+    user_id: str = Depends(get_current_user_id)
+):
     # Validate image file types
     allowed_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp')
     if not file.filename.lower().endswith(allowed_extensions):
@@ -86,6 +105,7 @@ async def upload_photo(file: UploadFile = File(...), db = Depends(get_db)):
         extracted = await extract_from_file(content, mime)
 
         photo = PhotoUpload(
+            user_id=user_id,
             filename=file.filename,
             extracted_text=extracted.full_text,
             summary=extracted.summary,

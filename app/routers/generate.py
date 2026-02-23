@@ -1,14 +1,17 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from app.dependencies import get_db
+from app.dependencies import get_db, get_current_user_id
 from app.services.narrative_generator import generate_family_narrative
 from bson import ObjectId
 
 router = APIRouter(prefix="/api/v1", tags=["generate"])
 
 @router.post("/report")
-async def create_report(user_id: str = "demo_user", db = Depends(get_db)):
+async def create_report(
+    db = Depends(get_db),
+    user_id: str = Depends(get_current_user_id)
+):
     uploads = await db.uploads.find({"user_id": user_id}).to_list(50)
 
     dna = next((u for u in uploads if u["type"] == "dna"), {})
